@@ -2,7 +2,9 @@
   "required": true,
   "package": "xyz.catcake.awaymute.mixin",
   "compatibilityLevel": "JAVA_16",
-  "mixins": [],
+  "mixins": [
+    "SoundSystemMixin"
+  ],
   "client": [],
   "server": [],
   "injectors": {
