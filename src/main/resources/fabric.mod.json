@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "awaymute",
+  "version": "${version}",
+  "name": "AwayMute",
+  "description": "Mutes Minecraft when its window becomes unfocused and restores the original volume when refocused.",
+  "authors": [
+    "catcake"
+  ],
+  "contributors": [],
+  "contact": {
+    "homepage": "https://catcake.xyz/",
+    "sources": "https://github.com/catcake/AwayMute"
+  },
+  "license": "MIT",
+  "icon": "assets/awaymute/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "xyz.catcake.awaymute.AwayMuteMod"
+    ],
+    "client": [],
+    "server": []
+  },
+  "mixins": [
+    "awaymute.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.12.3",
+    "fabric": "*"
+  }
+}
