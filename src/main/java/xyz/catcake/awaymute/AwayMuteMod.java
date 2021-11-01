@@ -6,7 +6,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.HashMap;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public final class AwayMuteMod implements ModInitializer {
 	public static final String MOD_ID = "awaymute";
@@ -41,17 +41,26 @@ public final class AwayMuteMod implements ModInitializer {
 		info("finished initializing!");
 	}
 
+	/**
+	 * Prints an info message with the calling class's logger.
+	 * @param message The message to be published.
+	 */
 	public static void info(final String message) {
 		try {
-			getCallerLog().info(prefixMessage(message));
+			getLog().info(prefixMessage(message));
 		} catch (IllegalStateException e) {
 			backupLog.info(prefixMessage(message));
 		}
 	}
 
+	/**
+	 * Prints a log message with the calling class's logger.
+	 * @param level The level of the log.
+	 * @param message The message to be published.
+	 */
 	public static void log(final Level level, final String message) {
 		try {
-			getCallerLog().log(level, prefixMessage(message));
+			getLog().log(level, prefixMessage(message));
 		} catch (IllegalStateException e) {
 			backupLog.log(level, prefixMessage(message));
 		}
@@ -61,24 +70,28 @@ public final class AwayMuteMod implements ModInitializer {
 		return String.format("[%s] %s", MOD_NAME, message);
 	}
 
-	private static Logger getCallerLog() throws IllegalStateException {
-		final var logCaller = getStackFrame().getDeclaringClass();
-
-		final var logAttempt = mappedLoggers.get(logCaller.getCanonicalName());
+	private static Logger getLog() throws IllegalStateException {
+		final var caller = getCaller();
+		final var logAttempt = mappedLoggers.get(caller.getCanonicalName());
 		if (logAttempt != null) return logAttempt;
-
-		return registerLog(logCaller);
+		return registerLog(caller);
 	}
 
-	private static StackWalker.StackFrame getStackFrame() throws IllegalStateException {
-		final var stackframes = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE)
-				.walk((frame) -> frame.collect(Collectors.toList()));
+	private static Class<?> getCaller() throws IllegalStateException {
+		final var minRequiredDepth = 4;
+		final var frames = StackWalker
+				.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE)
+				.walk(Stream::toList);
+		if (frames.size() < minRequiredDepth)
+			throw new IllegalStateException("unexpectedly small amount of stack frames");
 
-		if (stackframes.size() < 4) throw new IllegalStateException("unexpectedly small amount of stack frames");
-		if (!stackframes.get(2).getMethodName().equals("log") && !stackframes.get(2).getMethodName().equals("info"))
-			throw new IllegalStateException("getLog is permitted to be invoked only by log and info");
+		// 0 is this method, 1 is getLog
+		final var logMethodName = frames.get(2).getMethodName();
+		final var caller = frames.get(3).getDeclaringClass();
+		if (!logMethodName.equals("log") && !logMethodName.equals("info"))
+			throw new IllegalStateException("getCaller is only permitted to be invoked by log and info");
 
-		return stackframes.get(3);
+		return caller;
 	}
 
 	private static Logger registerLog(Class<?> clazz) {
