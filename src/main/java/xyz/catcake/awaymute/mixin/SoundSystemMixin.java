@@ -9,6 +9,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import xyz.catcake.awaymute.AwayMuteMod;
+import xyz.catcake.awaymute.event.SoundPlayEventContext;
 
 @Mixin(SoundSystem.class)
 public abstract class SoundSystemMixin {
@@ -18,6 +19,6 @@ public abstract class SoundSystemMixin {
 
 	@Inject(method = "play(Lnet/minecraft/client/sound/SoundInstance;)V", at = @At("HEAD"))
 	private void onSoundPlay(CallbackInfo callbackInfo) {
-		AwayMuteMod.getEventManager().publish(settings);
+		AwayMuteMod.getEventManager().publish(new SoundPlayEventContext(settings));
 	}
 }

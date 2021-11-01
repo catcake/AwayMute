@@ -16,10 +16,10 @@
   "icon": "assets/awaymute/icon.png",
   "environment": "*",
   "entrypoints": {
-    "main": [
+    "main": [],
+    "client": [
       "xyz.catcake.awaymute.AwayMuteMod"
     ],
-    "client": [],
     "server": []
   },
   "mixins": [
