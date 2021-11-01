@@ -4,6 +4,7 @@ import net.fabricmc.api.ModInitializer;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import xyz.catcake.event.EventManager;
 
 import java.util.HashMap;
 import java.util.stream.Stream;
@@ -16,6 +17,7 @@ public final class AwayMuteMod implements ModInitializer {
 	private static final HashMap<String, Logger> mappedLoggers;
 
 	private static AwayMute awayMute;
+	private static EventManager eventManager;
 
 	static {
 		backupLog = LogManager.getLogger();
@@ -34,10 +36,17 @@ public final class AwayMuteMod implements ModInitializer {
 		return awayMute;
 	}
 
+	public static EventManager getEventManager() throws NullPointerException {
+		if (eventManager == null) throw new NullPointerException();
+		return eventManager;
+	}
+
 	@Override
 	public void onInitialize() {
 		info("initializing...");
 		awayMute = new AwayMute();
+		eventManager = new EventManager(new HashMap<>());
+		eventManager.subscribe(awayMute);
 		info("finished initializing!");
 	}
 

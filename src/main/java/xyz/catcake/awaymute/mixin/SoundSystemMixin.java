@@ -18,6 +18,6 @@ public abstract class SoundSystemMixin {
 
 	@Inject(method = "play(Lnet/minecraft/client/sound/SoundInstance;)V", at = @At("HEAD"))
 	private void onSoundPlay(CallbackInfo callbackInfo) {
-		AwayMuteMod.getAwayMute().execute(settings);
+		AwayMuteMod.getEventManager().publish(settings);
 	}
 }

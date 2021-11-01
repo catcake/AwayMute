@@ -4,6 +4,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.GameOptions;
 import net.minecraft.sound.SoundCategory;
 import org.lwjgl.glfw.GLFW;
+import xyz.catcake.event.EventSubscribe;
 
 public final class AwayMute {
 	private float originalVolume;
@@ -14,6 +15,8 @@ public final class AwayMute {
 		wasFocused = true;
 	}
 
+	@SuppressWarnings("unused")
+	@EventSubscribe
 	public void execute(final GameOptions settings) {
 		final var windowHandle = MinecraftClient.getInstance().getWindow().getHandle();
 		final var isFocused = GLFW.glfwGetWindowAttrib(windowHandle, GLFW.GLFW_FOCUSED) == 1;
