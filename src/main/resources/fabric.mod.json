@@ -26,7 +26,7 @@
     "awaymute.mixins.json"
   ],
   "depends": {
-    "fabricloader": ">=0.12.3",
+    "fabricloader": ">=0.12.8",
     "fabric": "*"
   }
 }

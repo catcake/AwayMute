@@ -24,8 +24,8 @@ public final class AwayMute {
 		final var windowHandle = MinecraftClient.getInstance().getWindow().getHandle();
 		final var isFocused = GLFW.glfwGetWindowAttrib(windowHandle, GLFW.GLFW_FOCUSED) == 1;
 
-		if (wasFocused && !isFocused) mute(eventContext.getSettings());
-		else if (!wasFocused && isFocused) unmute(eventContext.getSettings());
+		if (wasFocused && !isFocused) mute(eventContext.settings());
+		else if (!wasFocused && isFocused) unmute(eventContext.settings());
 	}
 
 	private void mute(final GameOptions settings) {
