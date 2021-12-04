@@ -7,7 +7,7 @@ import java.util.Map;
 
 import static xyz.catcake.awaymute.AwayMuteMod.LOG;
 
-public final class EventManager {
+public final class EventBus {
 	private static int busIdCounter;
 
 	static {
@@ -17,7 +17,7 @@ public final class EventManager {
 	private final Map<Class<?>,List<Subscriber>> subscribers;
 	private final int busId;
 
-	public EventManager(final Map<Class<?>,List<Subscriber>> subscribers) {
+	public EventBus(final Map<Class<?>,List<Subscriber>> subscribers) {
 		this.subscribers = subscribers;
 		busId = busIdCounter++;
 	}
