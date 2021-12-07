@@ -1,29 +1,58 @@
 package xyz.catcake.awaymute;
 
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.option.GameOptions;
 import net.minecraft.sound.SoundCategory;
-import xyz.catcake.awaymute.event.MaximizedEventContext;
-import xyz.catcake.awaymute.event.MinimizedEventContext;
+import org.lwjgl.glfw.GLFW;
+import xyz.catcake.awaymute.event.TickEventContext;
 import xyz.catcake.event.EventSubscribe;
 
 import static xyz.catcake.awaymute.AwayMuteMod.LOG;
 
 public final class AwayMute {
+	private static final int TRUE = 1;
+	private static final float VOLUME_ZERO = 0;
+
+	private boolean firstTickOccurred;
+	private boolean wasFocused;
 	private float originalVolume;
+	private long windowHandle;
+	private GameOptions options;
 
-	public AwayMute() { originalVolume = 1; }
+	public AwayMute() {
+		wasFocused = true;
+		originalVolume = 1;
+	}
 
-	@SuppressWarnings("unused")
-	@EventSubscribe
-	public void onMinimize(final MinimizedEventContext context) {
-		originalVolume = context.settings().getSoundVolume(SoundCategory.MASTER);
-		context.settings().setSoundVolume(SoundCategory.MASTER, 0);
-		LOG.info("window unfocused; volume muted");
+	private void setLateValues() {
+		windowHandle = MinecraftClient.getInstance().getWindow().getHandle();
+		options = MinecraftClient.getInstance().options;
 	}
 
 	@SuppressWarnings("unused")
 	@EventSubscribe
-	public void onMaximize(final MaximizedEventContext context) {
-		context.settings().setSoundVolume(SoundCategory.MASTER, originalVolume);
+	public void onTick(final TickEventContext context) {
+		if (!firstTickOccurred) {
+			setLateValues();
+			firstTickOccurred = true;
+		}
+
+		final var isFocused = GLFW.glfwGetWindowAttrib(windowHandle, GLFW.GLFW_FOCUSED) == TRUE;
+
+		if (wasFocused && !isFocused) minimize();
+		else if (!wasFocused && isFocused) maximize();
+
+		wasFocused = isFocused;
+	}
+
+	private void minimize() {
+		originalVolume = options.getSoundVolume(SoundCategory.MASTER);
+		options.setSoundVolume(SoundCategory.MASTER, VOLUME_ZERO);
+		LOG.info("window unfocused; volume muted");
+	}
+
+	private void maximize() {
+		options.setSoundVolume(SoundCategory.MASTER, originalVolume);
 		LOG.info(String.format("window refocused; volume restored to %.2f", originalVolume));
 	}
 }
