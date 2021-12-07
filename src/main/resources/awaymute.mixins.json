@@ -3,7 +3,7 @@
   "package": "xyz.catcake.awaymute.mixin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
-    "SoundSystemMixin"
+    "MinecraftClientMixin"
   ],
   "client": [],
   "server": [],
