@@ -1,4 +1,4 @@
-package xyz.catcake.awaymute;
+package xyz.catcake.awaymute.impl;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.GameOptions;
@@ -7,17 +7,18 @@ import org.lwjgl.glfw.GLFW;
 import xyz.catcake.awaymute.event.TickEventContext;
 import xyz.catcake.event.EventSubscribe;
 
-import static xyz.catcake.awaymute.AwayMuteMod.LOG;
-
 public final class AwayMute {
+	private static final int RAMP_DURATION = 60;
 	private static final int TRUE = 1;
 	private static final float VOLUME_ZERO = 0;
+	private static final float VOLUME_MAXIMUM = 1;
 
 	private boolean firstTickOccurred;
 	private boolean wasFocused;
 	private float originalVolume;
 	private long windowHandle;
 	private GameOptions options;
+	private VolumeRampControl rampControl;
 
 	public AwayMute() {
 		wasFocused = true;
@@ -27,6 +28,12 @@ public final class AwayMute {
 	private void setLateValues() {
 		windowHandle = MinecraftClient.getInstance().getWindow().getHandle();
 		options = MinecraftClient.getInstance().options;
+		rampControl = new VolumeRampControl(
+			VOLUME_ZERO,
+			VOLUME_MAXIMUM,
+			RAMP_DURATION,
+			options
+		);
 	}
 
 	@SuppressWarnings("unused")
@@ -37,22 +44,14 @@ public final class AwayMute {
 			firstTickOccurred = true;
 		}
 
+		rampControl.tick();
+		if (!rampControl.ramping()) originalVolume = options.getSoundVolume(SoundCategory.MASTER);
+
 		final var isFocused = GLFW.glfwGetWindowAttrib(windowHandle, GLFW.GLFW_FOCUSED) == TRUE;
 
-		if (wasFocused && !isFocused) minimize();
-		else if (!wasFocused && isFocused) maximize();
+		if (wasFocused && !isFocused) rampControl.rampDown(VOLUME_ZERO);
+		else if (!wasFocused && isFocused) rampControl.rampUp(originalVolume);
 
 		wasFocused = isFocused;
-	}
-
-	private void minimize() {
-		originalVolume = options.getSoundVolume(SoundCategory.MASTER);
-		options.setSoundVolume(SoundCategory.MASTER, VOLUME_ZERO);
-		LOG.info("window unfocused; volume muted");
-	}
-
-	private void maximize() {
-		options.setSoundVolume(SoundCategory.MASTER, originalVolume);
-		LOG.info(String.format("window refocused; volume restored to %.2f", originalVolume));
 	}
 }
