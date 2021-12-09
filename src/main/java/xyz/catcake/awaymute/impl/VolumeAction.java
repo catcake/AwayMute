@@ -1,6 +1,6 @@
 package xyz.catcake.awaymute.impl;
 
-public enum VolumeAction {
+enum VolumeAction {
     NONE,
     RAMP_DOWN,
     RAMP_UP
