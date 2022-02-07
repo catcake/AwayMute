@@ -17,49 +17,50 @@ import java.util.Objects;
 import java.util.function.BiConsumer;
 
 /**
- * This creates a "mapping" (programmatically created lambda) function to the subscriber method, which can be called
- * much more quickly than {@link Method#invoke}.
- *
- * @param <T> An event context.
+ * Creates a "map" (programmatically created lambda) function to the subscriber method, which can be called much more
+ * quickly than {@link Method#invoke}.
  */
-// TODO: support static methods?
-// package private
-final class Subscriber <T extends IEventContext> {
+// TODO: support static & private subscriber methods?
+final class Subscriber {
 
 	private static final Logger log;
 
 	static { log = LogManager.getLogger(new PrefixedMessageFactory(AwayMuteMod.LOG_PREFIX)); }
 
-	private final Class<T>             eventType;
-	private final Object               owner;
-	private final BiConsumer<Object,T> callMap;
+	private final BiConsumer<Object,IEventContext> callMap;
+	private final Class<? extends IEventContext>   eventType;
+	private final Object                           owner;
 
 	/**
-	 * @param owner An instance of the owner of subscribingMethod.
-	 * @param subscriberMethod The subscribing method.
-	 * @throws Throwable From {@link #setupCallMapping}.
+	 * @param owner            An instance of the owner of subscribingMethod.
+	 * @param subscriberMethod The method subscribing to an {@link IEventContext}.
+	 *
+	 * @throws Throwable From {@link #setupCallMapping} when a lambda map to subscriberMethod cannot be created...
+	 *                   Sorry about this one but {@link MethodHandle#invokeExact} literally throws {@link Throwable}.
 	 */
 	@SuppressWarnings("unchecked")
 	public Subscriber(@NotNull final Object owner, @NotNull final Method subscriberMethod) throws Throwable {
 		Objects.requireNonNull(subscriberMethod, "subscriber must not be null");
 		final Class<?> eventType = subscriberMethod.getParameterTypes()[0];
-		if (!IEventContext.class.isAssignableFrom(eventType)) throw new IllegalArgumentException(
+		if (!IEventContext.isEventContext(eventType)) throw new IllegalArgumentException(
 				"methods with @EventSubscribe must have 1 parameter, deriving IEventContext");
-		this.eventType    = (Class<T>) eventType;
-		this.owner = owner;
-		callMap    = setupCallMapping(subscriberMethod);
+		this.eventType = (Class<? extends IEventContext>) eventType;
+		this.owner     = owner;
+		callMap        = setupCallMapping(subscriberMethod);
 	}
 
 	/**
-	 * @param subscriberMethod The subscribing method.
-	 * @return A {@link BiConsumer} where T is the owner of the subscriber and U is the event type.
+	 * @param subscriberMethod The method subscribing to an {@link IEventContext}.
+	 * @return A {@link BiConsumer} where T is the owner of the subscriber and U is the {@link IEventContext} being
+	 *         subscribed to.
 	 *
 	 * @throws IllegalAccessException    From {@link Lookup#unreflect}.
 	 * @throws LambdaConversionException From {@link LambdaMetafactory#metafactory}.
-	 * @throws Throwable                 From {@link MethodHandle#invokeExact}.
+	 * @throws Throwable                 From {@link MethodHandle#invokeExact}. Sorry about this one but
+	 *                                   {@link MethodHandle#invokeExact} literally throws {@link Throwable}.
 	 */
 	@SuppressWarnings("unchecked")
-	private BiConsumer<Object,T> setupCallMapping(final Method subscriberMethod)
+	private BiConsumer<Object,IEventContext> setupCallMapping(final Method subscriberMethod)
 			throws IllegalAccessException, LambdaConversionException, Throwable {
 		final String       mappingName = "accept";
 		final Lookup       caller      = MethodHandles.lookup();
@@ -68,7 +69,7 @@ final class Subscriber <T extends IEventContext> {
 		subscriberMethod.setAccessible(true);
 		subscriberHandle = caller.unreflect(subscriberMethod);
 
-		return (BiConsumer<Object,T>) LambdaMetafactory.metafactory(
+		return (BiConsumer<Object,IEventContext>) LambdaMetafactory.metafactory(
 				caller,
 				mappingName,
 				MethodType.methodType(BiConsumer.class),
@@ -77,13 +78,37 @@ final class Subscriber <T extends IEventContext> {
 				subscriberHandle.type()).getTarget().invokeExact();
 	}
 
+	/**
+	 * Checks if {@link #eventType} is assignable from the class of an {@link IEventContext}.
+	 *
+	 * @param event The event to test.
+	 * @return True if {@link #eventType} is assignable from {@code event}'s class.
+	 */
+	@SuppressWarnings("unchecked")
+	public boolean canConsumeEvent(@NotNull final IEventContext event)
+	{ return canConsumeEvent((Class<IEventContext>) event.getClass()); }
+
+	/**
+	 * Checks if {@link #eventType} is assignable from {@code eventType}.
+	 *
+	 * @param eventType The class to test.
+	 * @return True if {@link #eventType} is assignable from the parameter {@code eventType}.
+	 */
+	public boolean canConsumeEvent(@NotNull final Class<IEventContext> eventType)
+	{ return eventType.isAssignableFrom(this.eventType); }
+
+	/**
+	 * Publishes the {@link IEventContext} to the subscribing method.
+	 *
+	 * @param eventContext The {@link IEventContext} to publish to the subscriber.
+	 *
+	 * @throws IllegalArgumentException When {@code eventContext} is not compatible with {@link #eventType}.
+	 * @throws NullPointerException     When {@code eventContext} is null.
+	 */
 	public void publish(@NotNull final IEventContext eventContext) {
 		Objects.requireNonNull(eventContext, "eventContext must not be null");
-		Objects.requireNonNull(
-				callMap,
-				"subscriberMethod must not be null. Has #setupSubscriberHandle been called?");
-		if (!eventType.equals(eventContext.getClass())) throw new IllegalArgumentException(
+		if (!canConsumeEvent(eventContext)) throw new IllegalArgumentException(
 				"published an event to an incorrect subscriber (type mismatch)");
-		callMap.accept(owner, eventType.cast(eventContext));
+		callMap.accept(owner, eventContext);
 	}
 }
