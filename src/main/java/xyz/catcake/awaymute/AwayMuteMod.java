@@ -2,6 +2,7 @@ package xyz.catcake.awaymute;
 
 import net.fabricmc.api.ClientModInitializer;
 import org.apache.logging.log4j.LogManager;
+import xyz.catcake.awaymute.impl.AwayMute;
 import xyz.catcake.event.EventBus;
 import xyz.catcake.log.LogFactoryAbstractionL4J;
 
