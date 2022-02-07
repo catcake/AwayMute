@@ -1,57 +1,115 @@
 package xyz.catcake.event;
 
-import java.lang.reflect.InvocationTargetException;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
+import xyz.catcake.awaymute.AwayMuteMod;
+import xyz.catcake.log.PrefixedMessageFactory;
+
+import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
-import static xyz.catcake.awaymute.AwayMuteMod.LOG;
-
+// TODO: Unsubscribe.
 public final class EventBus {
-	private static int busIdCounter;
+
+	private static final Logger log;
+	private static       int    busIdIncrementor;
 
 	static {
-		busIdCounter = 0;
+		log              = LogManager.getLogger(new PrefixedMessageFactory(AwayMuteMod.LOG_PREFIX));
+		busIdIncrementor = 0;
 	}
 
-	private final Map<Class<?>,List<Subscriber>> subscribers;
-	private final int busId;
+	/** A unique identifier given to each bus. */
+	public final  int                                                                           busId;
+	private final Map<Class<? extends IEventContext>,List<Subscriber<? extends IEventContext>>> mappedSubscribers;
 
-	public EventBus(final Map<Class<?>,List<Subscriber>> subscribers) {
-		this.subscribers = subscribers;
-		busId = busIdCounter++;
+	public EventBus() { this(""); }
+
+	public EventBus(final String name) { this(name, new HashMap<>()); }
+
+	/**
+	 * @param name              A name for the bus, used in log messages. Buses will be assigned a
+	 *                          unique {@link #busId} regardless of a provided name.
+	 * @param mappedSubscribers A pre-made collection of {@link IEventContext}
+	 *                          mapped ta a list of its subscribers.
+	 */
+	public EventBus(
+			@NotNull final String name,
+			@NotNull final Map<Class<? extends IEventContext>,List<Subscriber<? extends IEventContext>>> mappedSubscribers) {
+		Objects.requireNonNull(name, "name must not be null");
+		Objects.requireNonNull(mappedSubscribers, "subscribers must not be null");
+		this.mappedSubscribers = mappedSubscribers;
+		busId                  = busIdIncrementor++;
 	}
 
 	/**
-	 * Registers all subscribers found in an object.
-	 * @param subscriberOwner An object with methods annotated with {@link xyz.catcake.event.EventSubscribe}
+	 * Registers all methods annotated with {@link EventSubscriber} found in an object.
+	 *
+	 * @param owner An object containing methods annotated with {@link EventSubscriber}.
+	 * @throws IllegalCallerException If an {@link EventSubscriber} annotated method in owner invalid.
+	 * @throws NullPointerException   If owner is null.
 	 */
-	public void subscribe(final Object subscriberOwner) {
-		for (final var method : subscriberOwner.getClass().getDeclaredMethods()) {
-			if (!method.isAnnotationPresent(EventSubscribe.class)) continue;
-			if (method.getParameterTypes().length != 1) continue;
-			if (!Object.class.isAssignableFrom(method.getParameterTypes()[0])) continue;
-			LOG.info(String.format("found: %s#%s", subscriberOwner.getClass().getCanonicalName(), method.getName()));
+	public void subscribe(@NotNull final Object owner) {
+		Objects.requireNonNull(owner, "owner must not be null");
+		final int preSubscriberCount = mappedSubscribers.size();
+		trySubscribeMethods(owner);
+		if (preSubscriberCount >= mappedSubscribers.size()) log.warn(String.format(
+				"#subscribe was called on %s, but no " + "subscribers were found",
+				owner.getClass().getCanonicalName()));
+	}
 
-			final var listenerList = subscribers.computeIfAbsent(
-				method.getParameterTypes()[0],
+	/** @throws IllegalCallerException If an {@link EventSubscriber} annotated method is invalid. */
+	private void trySubscribeMethods(final Object owner)
+		{ for (final Method method : owner.getClass().getDeclaredMethods()) subscribeValidSubscribers(owner, method); }
+
+	/** @throws IllegalCallerException If an {@link EventSubscriber} annotated method is invalid. */
+	private void subscribeValidSubscribers(final Object owner, final Method method) {
+		if (!method.isAnnotationPresent(EventSubscriber.class)) return;
+		if (!validateSubscriber(method)) throw new IllegalArgumentException(
+				"methods with @EventSubscribe must have 1 parameter, deriving IEventContext");
+		log.info(String.format("found subscriber: %s#%s",
+		                       method.getDeclaringClass().getCanonicalName(),
+		                       method.getName()));
+		subscribeMethod(owner, method);
+	}
+
+	private boolean validateSubscriber(final Method method) {
+		return method.getParameterTypes().length == 1 &&
+		       IEventContext.class.isAssignableFrom(method.getParameterTypes()[0]);
+	}
+
+	@SuppressWarnings("unchecked")
+	private void subscribeMethod(final Object owner, final Method subscriberMethod) {
+		final List<Subscriber<?>> listenerList = mappedSubscribers.computeIfAbsent(
+				(Class<? extends IEventContext>) subscriberMethod.getParameterTypes()[0],
 				k -> new ArrayList<>());
-			listenerList.add(new Subscriber(subscriberOwner, method));
+		try {
+			final Subscriber<?> subscriber = new Subscriber<>(owner, subscriberMethod);
+			listenerList.add(subscriber);
+		} catch (final Throwable e) {
+			log.error("error creating subscriber for: {} in {}",
+			         subscriberMethod, owner.getClass().getCanonicalName(), e);
 		}
 	}
 
-	public void publish(final Object eventContext) {
-		final var retrievedSubscribers = subscribers.get(eventContext.getClass());
-		if (retrievedSubscribers == null) {
-			LOG.info(String.format("%s has no subscribers on bus-%d", eventContext.getClass().getCanonicalName(), busId));
+	/**
+	 * Publishes the {@link IEventContext} to its subscribers.
+	 *
+	 * @param eventContext The context for an event.
+	 * @throws NullPointerException If eventContext is null.
+	 */
+	public void publish(@NotNull final IEventContext eventContext) {
+		Objects.requireNonNull(eventContext, "eventContext must not be null");
+		final List<Subscriber<? extends IEventContext>> subscribers = mappedSubscribers.get(eventContext.getClass());
+		if (Objects.isNull(subscribers)) {
+			log.warn(String.format("%s has no subscribers", eventContext.getClass().getCanonicalName()));
 			return;
 		}
-		for (final var s : retrievedSubscribers) {
-			try {
-				s.subscriber().invoke(s.owner(), eventContext);
-			} catch (IllegalAccessException | InvocationTargetException e) {
-				e.printStackTrace();
-			}
-		}
+		for (final Subscriber<? extends IEventContext> subscriber : subscribers) subscriber.publish(eventContext);
 	}
 }

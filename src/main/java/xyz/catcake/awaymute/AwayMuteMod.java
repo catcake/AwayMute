@@ -2,54 +2,62 @@ package xyz.catcake.awaymute;
 
 import net.fabricmc.api.ClientModInitializer;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import xyz.catcake.awaymute.impl.AwayMute;
 import xyz.catcake.event.EventBus;
-import xyz.catcake.log.LogFactoryAbstractionL4J;
+import xyz.catcake.event.IEventContext;
+import xyz.catcake.log.PrefixedMessageFactory;
 
-import java.util.HashMap;
+import java.util.Objects;
 
 public final class AwayMuteMod implements ClientModInitializer {
-	public static final String MOD_ID = "awaymute";
-	public static final String MOD_NAME = "AwayMute";
-	public static final LogFactoryAbstractionL4J LOG;
 
-	private static boolean instantiated;
-	private static EventBus eventManager;
+	// Other static initializers rely on this value, therefore it must(?) be set before the initializer.
+	public static final String      LOG_PREFIX = "[AwayMute]";
+	@SuppressWarnings("unused")
+	private static final String      MOD_ID;
+	private static final String      MOD_NAME;
+	private static final Logger      log;
+	private static       boolean     initialized;
+	private static       AwayMuteMod instance;
 
 	static {
-		LOG = new LogFactoryAbstractionL4J(LogManager.getLogger(), MOD_NAME, new HashMap<>());
-		instantiated = false;
+		MOD_ID      = "awaymute";
+		MOD_NAME    = "AwayMute";
+		log         = LogManager.getLogger(new PrefixedMessageFactory(LOG_PREFIX));
+		initialized = false;
+		instance    = null;
 	}
 
-	/**
-	 * @throws IllegalStateException if {@link AwayMuteMod} is constructed
-	 * more than once during the lifespan of the application.
-	 */
-	public AwayMuteMod() throws IllegalStateException {
-		if (instantiated) throw new IllegalStateException("only one instance allowed");
-		instantiated = true;
-	}
+	private final EventBus eventManager;
 
 	/**
-	 * {@link NullPointerException} happens  in situations where the
-	 * {@link xyz.catcake.awaymute.AwayMuteMod#eventManager} is <code>null</code>.
-	 * This can happen if {@link AwayMuteMod#onInitializeClient()} has not yet
-	 * been called or was not called.
-	 * @return an {@link xyz.catcake.event.EventBus}
-	 * @throws NullPointerException when {@link xyz.catcake.awaymute.AwayMuteMod#eventManager} is <code>null</code>.
+	 * @throws IllegalStateException if {@link AwayMuteMod} is constructed more than once during the lifespan of the
+	 *                               application.
 	 */
-	public static EventBus getEventManager() throws NullPointerException {
-		if (eventManager == null) throw new NullPointerException();
-		return eventManager;
+	public AwayMuteMod() {
+		if (Objects.nonNull(instance)) throw new IllegalStateException("only one instance allowed");
+		instance     = this;
+		eventManager = new EventBus(MOD_NAME);
 	}
+
+	public static AwayMuteMod Instance() { return instance; }
+
+	/**
+	 * Publish an event to the mod's event bus.
+	 * @param eventContext An instance of an event type to published.
+	 */
+	public void publishEvent(final IEventContext eventContext) { eventManager.publish(eventContext); }
 
 	/** {@inheritDoc} */
 	@Override
 	public void onInitializeClient() {
-		LOG.info("initializing...");
-		final var awayMute = new AwayMute();
-		eventManager = new EventBus(new HashMap<>());
-		eventManager.subscribe(awayMute);
-		LOG.info("finished initializing!");
+		if (initialized) throw new IllegalStateException("#onInitializeClient should only be called once, by fabric");
+		initialized = true;
+
+		log.info("initializing...");
+		// TODO: user-defined ramp duration.
+		eventManager.subscribe(new AwayMute(20));
+		log.info("finished initializing!");
 	}
 }
