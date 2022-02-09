@@ -8,12 +8,13 @@ import xyz.catcake.log.PrefixedMessageFactory;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-// TODO: Unsubscribe.
+// TODO: enforce policy on having multiple subscribers of the same type in an owner upon #subscribe.
 public final class EventBus {
 
 	private static final Logger log;
@@ -25,7 +26,7 @@ public final class EventBus {
 	}
 
 	/** A unique identifier given to each bus. */
-	public final  int                                                                                  busId;
+	public final  int                                                  busId;
 	private final Map<Class<? extends IEventContext>,List<Subscriber>> mappedSubscribers;
 
 	public EventBus() { this(""); }
@@ -86,6 +87,31 @@ public final class EventBus {
 			log.error("error creating subscriber for: {} in {}",
 			         subscriberMethod, owner.getClass().getCanonicalName(), e);
 		}
+	}
+
+	/**
+	 * Unsubscribes all subscribers in {@code owner}.
+	 *
+	 * @param owner An object containing methods annotated with {@link EventSubscriber}.
+	 */
+	public void unsubscribe(@NotNull final Object owner) {
+		final List<Subscriber> subscribersPerType = mappedSubscribers.values().stream()
+	             .flatMap(Collection::stream)
+	             .filter(subscriber -> subscriber.from(owner))
+	             .toList();
+		mappedSubscribers.values().forEach(subscribers -> subscribers.removeAll(subscribersPerType));
+	}
+
+	/**
+	 * @param owner An object containing {@code subscriberMethod}.
+	 * @param subscriberMethod The method in {@code owner} to unsubscribe.
+	 */
+	public void unsubscribe(@NotNull final Object owner, @NotNull final Method subscriberMethod) {
+		final List<Subscriber> toUnsubscribe = mappedSubscribers.values().stream()
+                .flatMap(Collection::stream)
+				.filter(subscriber -> subscriber.is(owner, subscriberMethod))
+				.toList();
+		mappedSubscribers.values().forEach(subscribers -> subscribers.removeAll(toUnsubscribe));
 	}
 
 	/**

@@ -30,11 +30,11 @@ final class Subscriber {
 	private final BiConsumer<Object,IEventContext> callMap;
 	private final Class<? extends IEventContext>   eventType;
 	private final Object                           owner;
+	private final Method                           subscriberMethod;
 
 	/**
 	 * @param owner            An instance of the owner of subscribingMethod.
 	 * @param subscriberMethod The method subscribing to an {@link IEventContext}.
-	 *
 	 * @throws Throwable From {@link #setupCallMapping} when a lambda map to subscriberMethod cannot be created...
 	 *                   Sorry about this one but {@link MethodHandle#invokeExact} literally throws {@link Throwable}.
 	 */
@@ -44,9 +44,10 @@ final class Subscriber {
 		final Class<?> eventType = subscriberMethod.getParameterTypes()[0];
 		if (!IEventContext.isEventContext(eventType)) throw new IllegalArgumentException(
 				"methods with @EventSubscribe must have 1 parameter, deriving IEventContext");
-		this.eventType = (Class<? extends IEventContext>) eventType;
-		this.owner     = owner;
-		callMap        = setupCallMapping(subscriberMethod);
+		this.eventType        = (Class<? extends IEventContext>) eventType;
+		this.owner            = owner;
+		this.subscriberMethod = subscriberMethod;
+		callMap               = setupCallMapping(subscriberMethod);
 	}
 
 	/**
@@ -101,7 +102,6 @@ final class Subscriber {
 	 * Publishes the {@link IEventContext} to the subscribing method.
 	 *
 	 * @param eventContext The {@link IEventContext} to publish to the subscriber.
-	 *
 	 * @throws IllegalArgumentException When {@code eventContext} is not compatible with {@link #eventType}.
 	 * @throws NullPointerException     When {@code eventContext} is null.
 	 */
@@ -111,4 +111,23 @@ final class Subscriber {
 				"published an event to an incorrect subscriber (type mismatch)");
 		callMap.accept(owner, eventContext);
 	}
+
+	/**
+	 * @param o An instance of the class to test.
+	 * @return Whether this subscriber comes from {@code o}.
+	 */
+	public boolean from(final Object o) { return from(o.getClass()); }
+
+	/**
+	 * @param c The class to test.
+	 * @return Whether this subscriber comes from {@code c}.
+	 */
+	public boolean from(final Class<?> c) { return owner.getClass().equals(c); }
+
+	/**
+	 * @param o An object of the class to test.
+	 * @param m The method to test.
+	 * @return Whether this subscriber maps to {@code m}.
+	 */
+	public boolean is(final Object o, final Method m) { return from(o) && subscriberMethod.equals(m); }
 }
