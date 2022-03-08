@@ -62,16 +62,16 @@ public final class AwayMuteMod implements ClientModInitializer {
 		AutoConfig.register(AwayMuteConfig.class, GsonConfigSerializer::new);
 		configHolder = AutoConfig.getConfigHolder(AwayMuteConfig.class);
 		configHolder.registerSaveListener((holder, config) -> {
-			setupAwayMute(config.volumeRampRate());
+			setupAwayMute(config.enabled(), config.volumeRampRate());
 			return ActionResult.SUCCESS;
 		});
-		setupAwayMute(configHolder.get().volumeRampRate());
+		setupAwayMute(configHolder.get().enabled(), configHolder.get().volumeRampRate());
 		log.info("finished initializing!");
 	}
 
-	private void setupAwayMute(final int volumeRampRate) {
+	private void setupAwayMute(final boolean enabled, final int volumeRampRate) {
 		if (Objects.isNull(awayMute)) awayMute = new AwayMute(volumeRampRate);
 		else eventManager.unsubscribe(awayMute);
-		eventManager.subscribe(awayMute);
+		if (enabled) eventManager.subscribe(awayMute);
 	}
 }

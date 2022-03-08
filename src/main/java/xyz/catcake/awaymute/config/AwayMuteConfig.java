@@ -13,18 +13,27 @@ import static xyz.catcake.awaymute.AwayMuteMod.LOG_PREFIX;
 @Config(name = AwayMuteMod.MOD_ID)
 public final class AwayMuteConfig implements ConfigData {
 
-	@ConfigEntry.Gui.Excluded private static final int    volumeRampRateDefault;
-	@ConfigEntry.Gui.Excluded private static final Logger log;
+	@ConfigEntry.Gui.Excluded private static final boolean enabledDefault;
+	@ConfigEntry.Gui.Excluded private static final int     volumeRampRateDefault;
+	@ConfigEntry.Gui.Excluded private static final Logger  log;
 
 	static {
+		enabledDefault        = true;
 		volumeRampRateDefault = 20;
 		log                   = LogManager.getLogger(new PrefixedMessageFactory(LOG_PREFIX));
 	}
 
+	@SuppressWarnings("FieldMayBeFinal")
+	private boolean enabled;
 	@ConfigEntry.BoundedDiscrete(min = 0, max = 100)
-	private int volumeRampRate;
+	private int     volumeRampRate;
 
-	public AwayMuteConfig() { volumeRampRate = volumeRampRateDefault; }
+	public AwayMuteConfig() {
+		enabled = enabledDefault;
+		volumeRampRate = volumeRampRateDefault;
+	}
+
+	public boolean enabled() { return enabled; }
 
 	public int volumeRampRate() { return volumeRampRate; }
 
