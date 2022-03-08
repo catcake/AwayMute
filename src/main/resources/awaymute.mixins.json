@@ -2,12 +2,6 @@
   "required": true,
   "package": "xyz.catcake.awaymute.mixin",
   "compatibilityLevel": "JAVA_17",
-  "mixins": [
-    "MinecraftClientMixin"
-  ],
-  "client": [],
-  "server": [],
-  "injectors": {
-    "defaultRequire": 1
-  }
+  "client": ["MinecraftClientMixin"],
+  "injectors": { "defaultRequire": 1 }
 }
